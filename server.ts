@@ -323,8 +323,6 @@ app.delete('/api/jobs/:jobId', async (req: Request, res: Response) => {
 
 // --- ENDPOINTS PARA OPERAÇÕES DE CANDIDATOS ---
 
-// ****** CORREÇÃO DO ERRO 405 AQUI ******
-// A rota agora aceita o método PATCH, que é o que o frontend está enviando.
 app.patch('/api/candidates/:candidateId/status', async (req: Request, res: Response) => {
   const { candidateId } = req.params;
   const { status } = req.body;
@@ -355,6 +353,7 @@ app.get('/api/data/all/:userId', async (req: Request, res: Response) => {
   }
 
   try {
+    // Busca todas as vagas
     const jobsResult = await baserowServer.get(VAGAS_TABLE_ID, '');
     const allJobs: BaserowJobPosting[] = (jobsResult.results || []) as BaserowJobPosting[];
     const userJobs = allJobs.filter((j: BaserowJobPosting) => j.usuario && j.usuario.some((u: any) => u.id === parseInt(userId)));
@@ -390,11 +389,18 @@ app.get('/api/data/all/:userId', async (req: Request, res: Response) => {
       }
       return { ...newCandidate, vaga: vagaLink };
     });
+
+    // ****** CORREÇÃO AQUI ******
+    // O erro estava na busca de agendamentos. O filtro correto deve ser feito pelo campo
+    // 'Candidato', que é um link para a tabela de candidatos, e então verificar se o usuário
+    // desse candidato corresponde ao userId.
+    const { results: userSchedules } = await baserowServer.get(AGENDAMENTOS_TABLE_ID, `?filter__Candidato__usuario__link_row_has=${userId}`);
     
     console.log("Server: Dados de Jobs (usuário):", userJobs.length);
     console.log("Server: Dados de Candidates (sincronizados para usuário):", syncedCandidates.length);
+    console.log("Server: Dados de Agendamentos (usuário):", userSchedules.length); // Log para agendamentos
     
-    res.json({ jobs: userJobs, candidates: syncedCandidates });
+    res.json({ jobs: userJobs, candidates: syncedCandidates, schedules: userSchedules });
 
   } catch (error: any) {
     console.error('Erro ao buscar todos os dados (backend):', error);
@@ -496,7 +502,9 @@ app.post('/api/upload-curriculums', upload.array('curriculumFiles'), async (req:
   }
 });
 
-// --- Endpoint: Buscar Agendamentos do Usuário ---
+// --- Endpoint: Buscar Agendamentos do Usuário (JÁ CORRIGIDO ACIMA NO /data/all) ---
+// Esta rota separada pode ser removida se todos os dados já vêm do endpoint principal.
+// Mantendo por enquanto, mas com a mesma lógica correta.
 app.get('/api/schedules/:userId', async (req: Request, res: Response) => {
   const { userId } = req.params;
   if (!userId) {
