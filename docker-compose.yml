@@ -82,4 +82,4 @@ secrets:
 networks:
   traefik_network:
     external: true
-    name: foco
+    name: Foco
