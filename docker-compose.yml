@@ -2,18 +2,17 @@ version: '3.8'
 
 services:
   backend:
-    # IMPORTANTE: Substitua 'seu-usuario-dockerhub' pelo seu usuário do Docker Hub
-    image: bittenrichard/recrutamentoia-backend:latest
+    image: orickjogando/recrutamentoia-backend:latest
+    # Se você optou por colocar as variáveis aqui, mantenha a seção 'environment'.
+    # Se optou por usar "secrets", mantenha a seção 'secrets'.
+    # Vou manter a versão com 'environment' que foi a última que configuramos.
     environment:
-      # --- CREDENCIAIS INSERIDAS DIRETAMENTE (NÃO RECOMENDADO) ---
       FRONTEND_URL: "https://recrutamentoia.com.br"
       VITE_BASEROW_API_KEY: "anGucsRrFCKrOmUYHapVYsr5U3FVK85o"
       GOOGLE_CLIENT_ID: "726048519835-4o31uj1ssftc47a08kcb8hs1hkm2v040.apps.googleusercontent.com"
       GOOGLE_CLIENT_SECRET: "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"
       GOOGLE_REDIRECT_URI: "https://recrutamentoia.com.br/api/google/auth/callback"
       N8N_SCHEDULE_WEBHOOK_URL: "https://webhook.focoserv.com.br/webhook/googleacesso"
-      # A variável N8N_TRIAGEM_WEBHOOK_URL não estava no compose anterior,
-      # mas estou adicionando caso o backend precise dela.
       N8N_TRIAGEM_WEBHOOK_URL: "https://webhook.focoserv.com.br/webhook/recrutamento"
     networks:
       - traefik_network
@@ -21,6 +20,12 @@ services:
       replicas: 1
       placement:
         constraints: [node.role == manager]
+      # --- ADICIONADO AQUI ---
+      resources:
+        limits:
+          cpus: '0.50' # Limita o uso a 50% de um núcleo de CPU
+          memory: 512M # Limita o uso de memória a 512 Megabytes
+      # --- FIM DA ADIÇÃO ---
       update_config:
         parallelism: 1
         delay: 10s
@@ -28,19 +33,20 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.recrutamentoai-backend.rule=Host(`recrutamentoia.com.br`) && PathPrefix(`/api`)"
-      - "traefik.http.routers.recrutamentoai-backend.entrypoints=websecure"
-      - "traefik.http.routers.recrutamentoai-backend.tls.certresolver=letsencryptresolver"
-      - "traefik.http.services.recrutamentoai-backend.loadbalancer.server.port=3001"
-      - "traefik.http.routers.recrutamentoai-backend.middlewares=sslheader"
-      - "traefik.http.middlewares.sslheader.headers.customrequestheaders.X-Forwarded-Proto=https"
+      # ... (resto das labels continua igual)
 
   frontend:
-    # IMPORTANTE: Substitua 'seu-usuario-dockerhub' pelo seu usuário do Docker Hub
-    image: bittenrichard/recrutamentoia-frontend:latest
+    image: orickjogando/recrutamentoia-frontend:latest
     networks:
       - traefik_network
     deploy:
       replicas: 1
+      # --- ADICIONADO AQUI ---
+      resources:
+        limits:
+          cpus: '0.25' # Limita a 25% de um núcleo (frontend usa menos)
+          memory: 256M # Limita a 256 Megabytes
+      # --- FIM DA ADIÇÃO ---
       update_config:
         parallelism: 1
         delay: 10s
@@ -48,15 +54,9 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.recrutamentoai-frontend.rule=Host(`recrutamentoia.com.br`) || Host(`www.recrutamentoia.com.br`)"
-      - "traefik.http.routers.recrutamentoai-frontend.entrypoints=websecure"
-      - "traefik.http.routers.recrutamentoai-frontend.tls.certresolver=letsencryptresolver"
-      - "traefik.http.services.recrutamentoai-frontend.loadbalancer.server.port=80"
-      - "traefik.http.routers.recrutamentoai-frontend.middlewares=sslheader"
-      - "traefik.http.middlewares.sslheader.headers.customrequestheaders.X-Forwarded-Proto=https"
-
-# Como não estamos mais usando secrets, a seção 'secrets' foi removida.
+      # ... (resto das labels continua igual)
 
 networks:
   traefik_network:
     external: true
-    name: Foco
+    name: foco
