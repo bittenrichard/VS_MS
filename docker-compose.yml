@@ -28,7 +28,6 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.recrutamentoai-backend.rule=Host(`recrutamentoia.com.br`) && PathPrefix(`/api`)"
-      # --- ADICIONADO AQUI: Prioridade alta para a regra do backend ---
       - "traefik.http.routers.recrutamentoai-backend.priority=100"
       - "traefik.http.routers.recrutamentoai-backend.entrypoints=websecure"
       - "traefik.http.routers.recrutamentoai-backend.tls.certresolver=letsencryptresolver"
@@ -53,7 +52,6 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.recrutamentoai-frontend.rule=Host(`recrutamentoia.com.br`) || Host(`www.recrutamentoia.com.br`)"
-      # --- ADICIONADO AQUI: Prioridade baixa para a regra do frontend ---
       - "traefik.http.routers.recrutamentoai-frontend.priority=50"
       - "traefik.http.routers.recrutamentoai-frontend.entrypoints=websecure"
       - "traefik.http.routers.recrutamentoai-frontend.tls.certresolver=letsencryptresolver"
@@ -64,5 +62,4 @@ services:
 networks:
   traefik_network:
     external: true
-    # Mantido como você confirmou que é o correto
     name: Foco
