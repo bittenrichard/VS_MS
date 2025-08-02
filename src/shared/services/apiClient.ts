@@ -2,7 +2,6 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
 const fetchWithAuth = async (url: string, options: RequestInit = {}): Promise<Response> => {
-  // Em uma versão futura, podemos adicionar o token JWT aqui.
   const headers = {
     'Content-Type': 'application/json',
     ...options.headers,
