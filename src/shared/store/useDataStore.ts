@@ -1,71 +1,84 @@
 // Local: src/shared/store/useDataStore.ts
 import { create } from 'zustand';
-import { api } from '../services/apiClient'; // Importa nosso novo cliente de API
+import { api } from '../services/apiClient'; // Importa nosso cliente de API centralizado
+import { JobPosting } from '../../features/screening/types';
+import { Candidate } from '../../shared/types';
+import { UserProfile } from '../../features/auth/types';
 
-// Interfaces (mantenha as suas definições aqui)
-interface Job {
-    id: number;
-    name: string;
-    description: string;
-    status: 'Em andamento' | 'Finalizado';
-    'Data de Criação': string;
-    'Nº de Aprovados': number;
-    'Nº de Reprovados': number;
-    'Nº de Candidatos': number;
-    // Adicione a propriedade 'candidates' se ela fizer parte do seu objeto Job
-    candidates?: any[]; 
-}
-
-interface DataStore {
-  jobs: Job[];
-  schedules: any[];
+interface DataState {
+  jobs: JobPosting[];
+  candidates: Candidate[];
+  isDataLoading: boolean;
   error: string | null;
-  isLoading: boolean;
-  fetchAllData: (userId: number) => Promise<void>;
-  fetchSchedules: (userId: number) => Promise<void>;
+  fetchAllData: (profile: UserProfile) => Promise<void>;
+  addJob: (job: JobPosting) => void;
+  updateJobInStore: (updatedJob: JobPosting) => void;
+  deleteJobById: (jobId: number) => Promise<void>;
+  updateCandidateStatusInStore: (candidateId: number, newStatus: 'Triagem' | 'Entrevista' | 'Aprovado' | 'Reprovado') => void;
 }
 
-export const useDataStore = create<DataStore>((set) => ({
-  jobs: [], // Inicia como um array vazio para evitar erros
-  schedules: [], // Inicia como um array vazio para evitar erros
+export const useDataStore = create<DataState>((set) => ({
+  jobs: [], // SEMPRE inicia como um array vazio
+  candidates: [], // SEMPRE inicia como um array vazio
+  isDataLoading: false,
   error: null,
-  isLoading: false,
-  fetchAllData: async (userId: number) => {
-    set({ isLoading: true, error: null });
+
+  fetchAllData: async (profile: UserProfile) => {
+    set({ isDataLoading: true, error: null });
     try {
-      const response = await api.get(`/api/data/all/${userId}`);
+      // Usa nosso cliente de API para chamar o endpoint correto
+      const response = await api.get(`/api/data/all/${profile.id}`);
       if (!response.ok) {
         throw new Error('Falha ao carregar dados do servidor.');
       }
-      const data = await response.json();
       
-      // --- CORREÇÃO CRÍTICA AQUI ---
-      // Assumimos que a API retorna o array de jobs diretamente.
-      // E garantimos que, se algo der errado no parse, jobs será um array vazio.
-      set({ jobs: Array.isArray(data) ? data : [], isLoading: false });
+      const data = await response.json();
 
-    } catch (error: any) {
-      console.error("Erro ao buscar dados (useDataStore):", error);
-      // Em caso de erro, garantimos que jobs continue sendo um array vazio
-      set({ error: error.message, isLoading: false, jobs: [] });
+      // A LÓGICA CORRETA E SEGURA, usando a estrutura que você validou
+      const jobs = Array.isArray(data.jobs) ? data.jobs : [];
+      const candidates = Array.isArray(data.candidates) ? data.candidates : [];
+      
+      set({ jobs, candidates, isDataLoading: false });
+
+    } catch (err: any) {
+      console.error("Erro ao buscar dados (useDataStore):", err);
+      // Em caso de qualquer erro, reseta para um estado seguro
+      set({ error: 'Falha ao carregar dados.', jobs: [], candidates: [], isDataLoading: false });
     }
   },
-  fetchSchedules: async (userId: number) => {
-    set({ isLoading: true, error: null });
-    try {
-        const response = await api.get(`/api/schedules/${userId}`);
-        if (!response.ok) {
-            throw new Error('Falha ao buscar agendamentos do servidor.');
-        }
-        const data = await response.json();
-        
-        // --- APLICANDO A MESMA CORREÇÃO AQUI ---
-        set({ schedules: Array.isArray(data) ? data : [], isLoading: false });
 
-    } catch (error: any) {
-        console.error("Erro ao buscar agendamentos:", error);
-        // Em caso de erro, garantimos que schedules continue sendo um array vazio
-        set({ error: error.message, isLoading: false, schedules: [] });
+  addJob: (job: JobPosting) => {
+    set((state) => ({ jobs: [job, ...state.jobs] }));
+  },
+
+  updateJobInStore: (updatedJob: JobPosting) => {
+    set((state) => ({
+      jobs: state.jobs.map(job => job.id === updatedJob.id ? updatedJob : job)
+    }));
+  },
+
+  deleteJobById: async (jobId: number) => {
+    try {
+      // Usa nosso cliente de API para deletar a vaga
+      const response = await api.delete(`/api/jobs/${jobId}`);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Não foi possível excluir a vaga.");
+      }
+      set((state) => ({
+        jobs: state.jobs.filter(job => job.id !== jobId)
+      }));
+    } catch (error) {
+      console.error("Erro ao deletar vaga (useDataStore):", error);
+      throw error;
     }
+  },
+
+  updateCandidateStatusInStore: (candidateId: number, newStatus: 'Triagem' | 'Entrevista' | 'Aprovado' | 'Reprovado') => {
+    set((state) => ({
+      candidates: state.candidates.map(c => 
+        c.id === candidateId ? { ...c, status: { id: 0, value: newStatus } } : c
+      )
+    }));
   },
 }));
