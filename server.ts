@@ -59,10 +59,9 @@ interface BaserowCandidate {
   resumo_ia?: string | null;
   status?: { id: number; value: 'Triagem' | 'Entrevista' | 'Aprovado' | 'Reprovado' } | null;
   data_triagem?: string;
-  // NOVO: Adicionado sexo, escolaridade e idade à interface BaserowCandidate
-  sexo?: string | null; // Adicionado
-  escolaridade?: string | null; // Adicionado
-  idade?: number | null; // Adicionado
+  sexo?: string | null;
+  escolaridade?: string | null;
+  idade?: number | null;
 }
 
 
@@ -231,7 +230,6 @@ app.get('/api/users/:userId', async (req: Request, res: Response) => {
   }
 });
 
-// --- NOVO ENDPOINT: UPLOAD DE AVATAR ---
 app.post('/api/upload-avatar', upload.single('avatar'), async (req: Request, res: Response) => {
   const userId = req.body.userId;
   if (!userId || !req.file) {
@@ -323,6 +321,8 @@ app.delete('/api/jobs/:jobId', async (req: Request, res: Response) => {
 
 // --- ENDPOINTS PARA OPERAÇÕES DE CANDIDATOS ---
 
+// ****** CORREÇÃO APLICADA AQUI ******
+// A rota agora aceita o método PATCH, resolvendo o erro 405 Method Not Allowed.
 app.patch('/api/candidates/:candidateId/status', async (req: Request, res: Response) => {
   const { candidateId } = req.params;
   const { status } = req.body;
@@ -345,7 +345,7 @@ app.patch('/api/candidates/:candidateId/status', async (req: Request, res: Respo
   }
 });
 
-// Endpoint para buscar todos os dados de vagas e candidatos de um usuário (Centralizado)
+// Endpoint para buscar todos os dados de vagas, candidatos e agendamentos (Centralizado)
 app.get('/api/data/all/:userId', async (req: Request, res: Response) => {
   const { userId } = req.params;
   if (!userId) {
@@ -353,7 +353,6 @@ app.get('/api/data/all/:userId', async (req: Request, res: Response) => {
   }
 
   try {
-    // Busca todas as vagas
     const jobsResult = await baserowServer.get(VAGAS_TABLE_ID, '');
     const allJobs: BaserowJobPosting[] = (jobsResult.results || []) as BaserowJobPosting[];
     const userJobs = allJobs.filter((j: BaserowJobPosting) => j.usuario && j.usuario.some((u: any) => u.id === parseInt(userId)));
@@ -390,15 +389,11 @@ app.get('/api/data/all/:userId', async (req: Request, res: Response) => {
       return { ...newCandidate, vaga: vagaLink };
     });
 
-    // ****** CORREÇÃO AQUI ******
-    // O erro estava na busca de agendamentos. O filtro correto deve ser feito pelo campo
-    // 'Candidato', que é um link para a tabela de candidatos, e então verificar se o usuário
-    // desse candidato corresponde ao userId.
     const { results: userSchedules } = await baserowServer.get(AGENDAMENTOS_TABLE_ID, `?filter__Candidato__usuario__link_row_has=${userId}`);
     
     console.log("Server: Dados de Jobs (usuário):", userJobs.length);
     console.log("Server: Dados de Candidates (sincronizados para usuário):", syncedCandidates.length);
-    console.log("Server: Dados de Agendamentos (usuário):", userSchedules.length); // Log para agendamentos
+    console.log("Server: Dados de Agendamentos (usuário):", userSchedules.length);
     
     res.json({ jobs: userJobs, candidates: syncedCandidates, schedules: userSchedules });
 
@@ -502,9 +497,7 @@ app.post('/api/upload-curriculums', upload.array('curriculumFiles'), async (req:
   }
 });
 
-// --- Endpoint: Buscar Agendamentos do Usuário (JÁ CORRIGIDO ACIMA NO /data/all) ---
-// Esta rota separada pode ser removida se todos os dados já vêm do endpoint principal.
-// Mantendo por enquanto, mas com a mesma lógica correta.
+// --- Endpoint: Buscar Agendamentos do Usuário ---
 app.get('/api/schedules/:userId', async (req: Request, res: Response) => {
   const { userId } = req.params;
   if (!userId) {
