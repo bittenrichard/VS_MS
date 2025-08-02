@@ -3,9 +3,6 @@ version: '3.8'
 services:
   backend:
     image: orickjogando/recrutamentoia-backend:latest
-    # Se você optou por colocar as variáveis aqui, mantenha a seção 'environment'.
-    # Se optou por usar "secrets", mantenha a seção 'secrets'.
-    # Vou manter a versão com 'environment' que foi a última que configuramos.
     environment:
       FRONTEND_URL: "https://recrutamentoia.com.br"
       VITE_BASEROW_API_KEY: "anGucsRrFCKrOmUYHapVYsr5U3FVK85o"
@@ -20,12 +17,10 @@ services:
       replicas: 1
       placement:
         constraints: [node.role == manager]
-      # --- ADICIONADO AQUI ---
       resources:
         limits:
-          cpus: '0.50' # Limita o uso a 50% de um núcleo de CPU
-          memory: 512M # Limita o uso de memória a 512 Megabytes
-      # --- FIM DA ADIÇÃO ---
+          cpus: '0.50'
+          memory: 512M
       update_config:
         parallelism: 1
         delay: 10s
@@ -33,7 +28,11 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.recrutamentoai-backend.rule=Host(`recrutamentoia.com.br`) && PathPrefix(`/api`)"
-      # ... (resto das labels continua igual)
+      - "traefik.http.routers.recrutamentoai-backend.entrypoints=websecure"
+      - "traefik.http.routers.recrutamentoai-backend.tls.certresolver=letsencryptresolver"
+      - "traefik.http.services.recrutamentoai-backend.loadbalancer.server.port=3001"
+      - "traefik.http.routers.recrutamentoai-backend.middlewares=sslheader"
+      - "traefik.http.middlewares.sslheader.headers.customrequestheaders.X-Forwarded-Proto=https"
 
   frontend:
     image: orickjogando/recrutamentoia-frontend:latest
@@ -41,12 +40,10 @@ services:
       - traefik_network
     deploy:
       replicas: 1
-      # --- ADICIONADO AQUI ---
       resources:
         limits:
-          cpus: '0.25' # Limita a 25% de um núcleo (frontend usa menos)
-          memory: 256M # Limita a 256 Megabytes
-      # --- FIM DA ADIÇÃO ---
+          cpus: '0.25'
+          memory: 256M
       update_config:
         parallelism: 1
         delay: 10s
@@ -54,9 +51,13 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.recrutamentoai-frontend.rule=Host(`recrutamentoia.com.br`) || Host(`www.recrutamentoia.com.br`)"
-      # ... (resto das labels continua igual)
+      - "traefik.http.routers.recrutamentoai-frontend.entrypoints=websecure"
+      - "traefik.http.routers.recrutamentoai-frontend.tls.certresolver=letsencryptresolver"
+      - "traefik.http.services.recrutamentoai-frontend.loadbalancer.server.port=80"
+      - "traefik.http.routers.recrutamentoai-frontend.middlewares=sslheader"
+      - "traefik.http.middlewares.sslheader.headers.customrequestheaders.X-Forwarded-Proto=https"
 
 networks:
   traefik_network:
     external: true
-    name: foco
+    name: Foco
