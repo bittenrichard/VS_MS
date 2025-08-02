@@ -21,9 +21,14 @@ services:
         limits:
           cpus: '0.50'
           memory: 512M
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: stop-first
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.backend-router.rule=Host(`recrutamentoia.com.br`) && PathPrefix(`/api`)"
+      # --- NOVA REGRA PARA O BACKEND USANDO SUBDOMÍNIO ---
+      - "traefik.http.routers.backend-router.rule=Host(`api.recrutamentoia.com.br`)"
       - "traefik.http.routers.backend-router.entrypoints=websecure"
       - "traefik.http.routers.backend-router.tls.certresolver=letsencryptresolver"
       - "traefik.http.services.backend-service.loadbalancer.server.port=3001"
@@ -39,8 +44,13 @@ services:
         limits:
           cpus: '0.25'
           memory: 256M
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: stop-first
     labels:
       - "traefik.enable=true"
+      # --- REGRA PARA O FRONTEND (DOMÍNIO PRINCIPAL) ---
       - "traefik.http.routers.frontend-router.rule=Host(`recrutamentoia.com.br`) || Host(`www.recrutamentoia.com.br`)"
       - "traefik.http.routers.frontend-router.entrypoints=websecure"
       - "traefik.http.routers.frontend-router.tls.certresolver=letsencryptresolver"
