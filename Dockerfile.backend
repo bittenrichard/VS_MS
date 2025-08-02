@@ -1,8 +1,23 @@
+# Usa uma imagem Node.js baseada em Alpine, que é pequena e eficiente
 FROM node:20-alpine
-WORKDIR /usr/src/app
+
+# Define o diretório de trabalho dentro do contêiner
+WORKDIR /app
+
+# Copia os arquivos de definição de pacotes
 COPY package*.json ./
+
+# Instala as dependências de produção
 RUN npm install --omit=dev
+
+# Copia todo o resto do código-fonte da aplicação
 COPY . .
+
+# Compila o código TypeScript para JavaScript (APENAS UMA VEZ, AQUI)
 RUN npm run build:server
+
+# Expõe a porta que o servidor vai usar
 EXPOSE 3001
-CMD ["npm", "run", "server"]
+
+# Comando para iniciar o servidor em modo de produção, usando o script otimizado
+CMD ["npm", "run", "start"]

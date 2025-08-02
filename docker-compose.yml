@@ -20,6 +20,7 @@ services:
       resources:
         limits:
           cpus: '0.50'
+          # Voltamos a um limite baixo e seguro, graças à otimização
           memory: 512M
       update_config:
         parallelism: 1
