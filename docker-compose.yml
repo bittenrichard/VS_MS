@@ -11,9 +11,6 @@ services:
       GOOGLE_REDIRECT_URI: "https://recrutamentoia.com.br/api/google/auth/callback"
       N8N_SCHEDULE_WEBHOOK_URL: "https://webhook.focoserv.com.br/webhook/googleacesso"
       N8N_TRIAGEM_WEBHOOK_URL: "https://webhook.focoserv.com.br/webhook/recrutamento"
-    # --- MUDANÇA IMPORTANTE AQUI ---
-    ports:
-      - "3001:3001"
     networks:
       - traefik_network
     deploy:
@@ -24,11 +21,13 @@ services:
         limits:
           cpus: '0.50'
           memory: 512M
-      update_config:
-        parallelism: 1
-        delay: 10s
-        order: stop-first
-    # LABELS DO TRAEFIK REMOVIDAS DO BACKEND
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.backend.rule=Host(`recrutamentoia.com.br`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.backend.entrypoints=websecure"
+      - "traefik.http.routers.backend.tls.certresolver=letsencryptresolver"
+      - "traefik.http.services.backend.loadbalancer.server.port=3001"
+      - "traefik.docker.network=Foco"
 
   frontend:
     image: orickjogando/recrutamentoia-frontend:latest
@@ -40,20 +39,13 @@ services:
         limits:
           cpus: '0.25'
           memory: 256M
-      update_config:
-        parallelism: 1
-        delay: 10s
-        order: stop-first
     labels:
-      # As labels do frontend continuam, pois ele está funcionando
       - "traefik.enable=true"
-      - "traefik.http.routers.recrutamentoai-frontend.rule=Host(`recrutamentoia.com.br`) || Host(`www.recrutamentoia.com.br`)"
-      - "traefik.http.routers.recrutamentoai-frontend.priority=50"
-      - "traefik.http.routers.recrutamentoai-frontend.entrypoints=websecure"
-      - "traefik.http.routers.recrutamentoai-frontend.tls.certresolver=letsencryptresolver"
-      - "traefik.http.services.recrutamentoai-frontend.loadbalancer.server.port=80"
-      - "traefik.http.routers.recrutamentoai-frontend.middlewares=sslheader"
-      - "traefik.http.middlewares.sslheader.headers.customrequestheaders.X-Forwarded-Proto=https"
+      - "traefik.http.routers.frontend.rule=Host(`recrutamentoia.com.br`) || Host(`www.recrutamentoia.com.br`)"
+      - "traefik.http.routers.frontend.entrypoints=websecure"
+      - "traefik.http.routers.frontend.tls.certresolver=letsencryptresolver"
+      - "traefik.http.services.frontend.loadbalancer.server.port=80"
+      - "traefik.docker.network=Foco"
 
 networks:
   traefik_network:
