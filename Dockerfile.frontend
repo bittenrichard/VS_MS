@@ -1,26 +1,32 @@
 # --- ESTÁGIO 1: Build ---
+# Imagem base para o build
 FROM node:20-slim AS build-stage
+
+# Define o diretório de trabalho
 WORKDIR /app
 
-# Copia APENAS o package.json.
-# Isto é CRUCIAL para forçar o npm a criar um lockfile novo e correto para Linux.
+# A LINHA MAIS IMPORTANTE DE TODAS:
+# Copia APENAS o package.json. Sem o '*', garantimos que o
+# package-lock.json venenoso do Windows NUNCA entre no contêiner.
 COPY package.json ./
 
-# Instala todas as dependências do zero, resolvendo o bug do Rollup.
+# Com o package-lock.json fora do caminho, o npm vai instalar as dependências
+# e criar um lockfile NOVO e CORRETO para o ambiente Linux.
 RUN npm install
 
-# Agora copia todo o seu código-fonte.
+# Agora, com as dependências corretas, copiamos o resto do código.
 COPY . .
 
-# Executa o build de produção.
+# Finalmente, executamos o build de produção.
 RUN npm run build
 
 
 # --- ESTÁGIO 2: Produção ---
+# Usa uma imagem Nginx super leve para servir os arquivos
 FROM nginx:stable-alpine AS production-stage
 
-# Copia os arquivos construídos do estágio anterior para o servidor web.
+# Copia os arquivos estáticos construídos no estágio anterior
 COPY --from=build-stage /app/dist /usr/share/nginx/html
 
-# Expõe a porta para o mundo exterior.
+# Expõe a porta 80 do contêiner
 EXPOSE 80
