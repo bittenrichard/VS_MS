@@ -61,12 +61,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       return;
     }
     try {
+      // Adicionado /api ao caminho pois o base url não o inclui
       const response = await fetch(`${API_BASE_URL}/api/users/${authState.profile.id}`);
       if (!response.ok) {
         throw new Error('Falha ao buscar perfil atualizado.');
       }
       const userProfile: UserProfile = await response.json();
-
+      
       localStorage.setItem('userProfile', JSON.stringify(userProfile));
       setAuthState(prev => ({ ...prev, profile: userProfile }));
     } catch (error) {
@@ -85,7 +86,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Erro ao cadastrar.');
-
+      
       setAuthState(prev => ({ ...prev, isLoading: false }));
       return data.user;
 

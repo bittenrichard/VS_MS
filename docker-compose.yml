@@ -23,7 +23,6 @@ services:
           memory: 512M
     labels:
       - "traefik.enable=true"
-      # --- NOVA REGRA PARA O BACKEND ---
       - "traefik.http.routers.backend-router.rule=Host(`api.recrutamentoia.com.br`)"
       - "traefik.http.routers.backend-router.entrypoints=websecure"
       - "traefik.http.routers.backend-router.tls.certresolver=letsencryptresolver"
@@ -42,7 +41,6 @@ services:
           memory: 256M
     labels:
       - "traefik.enable=true"
-      # --- REGRA DO FRONTEND (não muda) ---
       - "traefik.http.routers.frontend-router.rule=Host(`recrutamentoia.com.br`) || Host(`www.recrutamentoia.com.br`)"
       - "traefik.http.routers.frontend-router.entrypoints=websecure"
       - "traefik.http.routers.frontend-router.tls.certresolver=letsencryptresolver"
