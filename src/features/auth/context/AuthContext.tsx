@@ -1,10 +1,8 @@
 // Local: src/features/auth/context/AuthContext.tsx
-import React, { createContext, useState, useEffect, ReactNode, useCallback } from 'react';
-import { AuthState, LoginCredentials, SignUpCredentials, UserProfile } from '../types';
 
-// Pega a URL base da API das variáveis de ambiente para produção
-// Em desenvolvimento, continuará usando o proxy para /api
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
+import React, { createContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import { api } from '../../../shared/services/apiClient'; // IMPORTA NOSSO NOVO CLIENTE
+import { AuthState, LoginCredentials, SignUpCredentials, UserProfile } from '../types';
 
 interface AuthContextType extends AuthState {
   error: string | null;
@@ -58,11 +56,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const refetchProfile = useCallback(async () => {
     if (!authState.profile?.id) {
+      console.warn("Tentativa de re-sincronizar perfil sem usuário logado.");
       return;
     }
     try {
-      // Adicionado /api ao caminho pois o base url não o inclui
-      const response = await fetch(`${API_BASE_URL}/api/users/${authState.profile.id}`);
+      // USA O NOVO CLIENTE
+      const response = await api.get(`/api/users/${authState.profile.id}`);
       if (!response.ok) {
         throw new Error('Falha ao buscar perfil atualizado.');
       }
@@ -79,19 +78,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setAuthError(null);
     setAuthState(prev => ({ ...prev, isLoading: true }));
     try {
-      const response = await fetch(`${API_BASE_URL}/api/auth/signup`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(credentials),
-      });
+      // USA O NOVO CLIENTE
+      const response = await api.post('/api/auth/signup', credentials);
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Erro ao cadastrar.');
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Erro ao cadastrar. Tente novamente.');
+      }
       
+      const userProfile: UserProfile = data.user;
       setAuthState(prev => ({ ...prev, isLoading: false }));
-      return data.user;
+      return userProfile;
 
     } catch (error: any) {
-      setAuthError(error.message);
+      setAuthError(error.message || 'Ocorreu um erro ao cadastrar. Tente novamente.');
       setAuthState(prev => ({ ...prev, isLoading: false }));
       return null;
     }
@@ -101,19 +101,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setAuthError(null);
     setAuthState(prev => ({ ...prev, isLoading: true }));
     try {
-      const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(credentials),
-      });
+      // USA O NOVO CLIENTE
+      const response = await api.post('/api/auth/login', credentials);
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Falha no login.');
 
-      localStorage.setItem('userProfile', JSON.stringify(data.user));
-      setAuthState({ profile: data.user, isAuthenticated: true, isLoading: false });
+      if (!response.ok) {
+        throw new Error(data.error || 'Falha no login. Verifique suas credenciais.');
+      }
+      
+      const userProfile: UserProfile = data.user;
+      localStorage.setItem('userProfile', JSON.stringify(userProfile));
+      setAuthState({ profile: userProfile, isAuthenticated: true, isLoading: false });
       return true;
+
     } catch (error: any) {
-      setAuthError(error.message);
+      setAuthError(error.message || 'Ocorreu um erro ao fazer login. Tente novamente.');
       setAuthState(prev => ({ ...prev, isLoading: false }));
       return false;
     }
@@ -124,7 +126,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setAuthState({ profile: null, isAuthenticated: false, isLoading: false });
   };
 
-  const value = { ...authState, error: authError, signUp, signIn, signOut, updateProfile, refetchProfile };
+  const value = {
+    ...authState,
+    error: authError,
+    signUp,
+    signIn,
+    signOut,
+    updateProfile,
+    refetchProfile,
+  };
 
   return (
     <AuthContext.Provider value={value}>
