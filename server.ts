@@ -323,6 +323,8 @@ app.delete('/api/jobs/:jobId', async (req: Request, res: Response) => {
 
 // --- ENDPOINTS PARA OPERAÇÕES DE CANDIDATOS ---
 
+// ****** CORREÇÃO DO ERRO 405 AQUI ******
+// A rota agora aceita o método PATCH, que é o que o frontend está enviando.
 app.patch('/api/candidates/:candidateId/status', async (req: Request, res: Response) => {
   const { candidateId } = req.params;
   const { status } = req.body;
@@ -337,10 +339,7 @@ app.patch('/api/candidates/:candidateId/status', async (req: Request, res: Respo
   }
 
   try {
-    // CORREÇÃO: A API do Baserow para campos 'Single Select' com user_field_names=true
-    // espera a própria string como valor, não um objeto.
     const updatedCandidate = await baserowServer.patch(CANDIDATOS_TABLE_ID, parseInt(candidateId), { status: status });
-    
     res.json(updatedCandidate);
   } catch (error: any) {
     console.error('Erro ao atualizar status do candidato (backend):', error);
@@ -356,13 +355,10 @@ app.get('/api/data/all/:userId', async (req: Request, res: Response) => {
   }
 
   try {
-    // Busca todas as vagas
     const jobsResult = await baserowServer.get(VAGAS_TABLE_ID, '');
     const allJobs: BaserowJobPosting[] = (jobsResult.results || []) as BaserowJobPosting[];
-    // Filtra vagas por usuário
     const userJobs = allJobs.filter((j: BaserowJobPosting) => j.usuario && j.usuario.some((u: any) => u.id === parseInt(userId)));
 
-    // Busca todos os candidatos das duas tabelas (CANDIDATOS_TABLE_ID e WHATSAPP_CANDIDATOS_TABLE_ID)
     const regularCandidatesResult = await baserowServer.get(CANDIDATOS_TABLE_ID, '');
     const whatsappCandidatesResult = await baserowServer.get(WHATSAPP_CANDIDATOS_TABLE_ID, '');
 
@@ -371,30 +367,23 @@ app.get('/api/data/all/:userId', async (req: Request, res: Response) => {
       ...(whatsappCandidatesResult.results || [])
     ] as BaserowCandidate[];
 
-    // Filtra candidatos por usuário
     const userCandidatesRaw = allCandidatesRaw.filter((c: BaserowCandidate) => c.usuario && c.usuario.some((u: any) => u.id === parseInt(userId)));
 
-    // Criar mapas de vagas por ID e Título para sincronização mais eficiente
     const jobsMapById = new Map<number, BaserowJobPosting>(userJobs.map((job: BaserowJobPosting) => [job.id, job]));
     const jobsMapByTitle = new Map<string, BaserowJobPosting>(userJobs.map((job: BaserowJobPosting) => [job.titulo.toLowerCase().trim(), job]));
 
-    // Sincroniza os candidatos: Garante que o campo 'vaga' seja sempre um objeto { id, value }
-    // Este é um ponto CRÍTICO. Se o 'vaga' vier como string e não for mapeado para um link de vaga,
-    // o filtro de vaga no frontend pode falhar.
     const syncedCandidates = userCandidatesRaw.map((candidate: BaserowCandidate) => {
       const newCandidate = { ...candidate };
       let vagaLink: { id: number; value: string }[] | null = null;
 
-      // Se candidate.vaga é uma string (Baserow WhatsApp candidatos)
       if (candidate.vaga && typeof candidate.vaga === 'string') {
         const jobMatch = jobsMapByTitle.get(candidate.vaga.toLowerCase().trim());
         if (jobMatch) {
           vagaLink = [{ id: jobMatch.id, value: jobMatch.titulo }];
         }
-      // Se candidate.vaga já é um array de objetos (Baserow candidatos normais)
       } else if (candidate.vaga && Array.isArray(candidate.vaga) && candidate.vaga.length > 0) {
         const linkedVaga = candidate.vaga[0] as { id: number; value: string };
-        const jobMatch = jobsMapById.get(linkedVaga.id); // Confirma que a vaga existe
+        const jobMatch = jobsMapById.get(linkedVaga.id);
         if (jobMatch) {
           vagaLink = [{ id: jobMatch.id, value: jobMatch.titulo }];
         }
@@ -402,17 +391,9 @@ app.get('/api/data/all/:userId', async (req: Request, res: Response) => {
       return { ...newCandidate, vaga: vagaLink };
     });
     
-    // NOVO: Log para verificar os dados de jobs e candidates ANTES de enviar para o frontend
     console.log("Server: Dados de Jobs (usuário):", userJobs.length);
     console.log("Server: Dados de Candidates (sincronizados para usuário):", syncedCandidates.length);
-    syncedCandidates.forEach((c, i) => {
-        // Usar optional chaining para evitar erros se as propriedades forem null/undefined
-        console.log(`  Candidato ${i}: ID=${c.id}, Nome="${c.nome}", Vaga=${c.vaga ? c.vaga[0]?.value : 'N/A'}`);
-        // Usar optional chaining para acessar as propriedades
-        console.log(`    Sexo: ${c.sexo || 'N/A'}, Escolaridade: ${c.escolaridade || 'N/A'}, Idade: ${c.idade || 'N/A'}`);
-    });
-
-
+    
     res.json({ jobs: userJobs, candidates: syncedCandidates });
 
   } catch (error: any) {
@@ -427,13 +408,7 @@ app.post('/api/upload-curriculums', upload.array('curriculumFiles'), async (req:
   const { jobId, userId } = req.body;
   const files = req.files as Express.Multer.File[];
 
-  console.log("Backend /api/upload-curriculums: Recebido");
-  console.log("  req.body:", req.body);
-  console.log("  req.files count:", files ? files.length : 0);
-
-
   if (!jobId || !userId || !files || files.length === 0) {
-    console.error("Backend Erro 400: jobId, userId ou arquivos ausentes.");
     return res.status(400).json({ error: 'Vaga, usuário e arquivos de currículo são obrigatórios.' });
   }
   
@@ -441,7 +416,6 @@ app.post('/api/upload-curriculums', upload.array('curriculumFiles'), async (req:
     const newCandidateEntries = [];
     for (const file of files) {
       if (file.size > 5 * 1024 * 1024) { 
-          console.error(`Backend Erro 400: Arquivo '${file.originalname}' muito grande.`);
           return res.status(400).json({ success: false, message: `O arquivo '${file.originalname}' é muito grande. O limite é de 5MB.` });
       }
 
@@ -450,8 +424,8 @@ app.post('/api/upload-curriculums', upload.array('curriculumFiles'), async (req:
       const newCandidateData = {
         nome: file.originalname.split('.')[0] || 'Novo Candidato',
         curriculo: [{ name: uploadedFile.name, url: uploadedFile.url }],
-        usuario: [parseInt(userId as string)], // Garante que userId seja um número
-        vaga: [parseInt(jobId as string)],     // Garante que jobId seja um número
+        usuario: [parseInt(userId as string)],
+        vaga: [parseInt(jobId as string)],
         score: null,
         resumo_ia: null,
         status: 'Triagem', 
@@ -461,17 +435,13 @@ app.post('/api/upload-curriculums', upload.array('curriculumFiles'), async (req:
       newCandidateEntries.push(createdCandidate);
     }
 
-    // Disparar UM ÚNICO webhook para o n8n com TODOS os candidatos em lote
-    const N8N_TRIAGEM_WEBHOOK_URL = 'https://webhook.focoserv.com.br/webhook/recrutamento'; // URL fornecida pelo usuário
-    
-    // Buscar informações da vaga e do usuário logado APENAS UMA VEZ
+    const N8N_TRIAGEM_WEBHOOK_URL = process.env.N8N_TRIAGEM_WEBHOOK_URL;
     const jobInfo = await baserowServer.getRow(VAGAS_TABLE_ID, parseInt(jobId as string));
     const userInfo = await baserowServer.getRow(USERS_TABLE_ID, parseInt(userId as string));
 
     if (N8N_TRIAGEM_WEBHOOK_URL && newCandidateEntries.length > 0 && jobInfo && userInfo) {
       console.log('Disparando webhook em lote para o n8n (triagem de currículos)...');
       
-      // Mapear os candidatos criados para o formato do payload do webhook
       const candidatosParaWebhook = newCandidateEntries.map(candidate => ({
         id: candidate.id,
         nome: candidate.nome,
@@ -509,15 +479,14 @@ app.post('/api/upload-curriculums', upload.array('curriculumFiles'), async (req:
 
         if (!n8nResponse.ok) {
           const n8nErrorData = await n8nResponse.text(); 
-          console.error(`Webhook para n8n (triagem em lote) falhou! Status: ${n8nResponse.status}, Resposta: ${n8nErrorData}`);
+          console.error(`Webhook para n8n falhou! Status: ${n8nResponse.status}, Resposta: ${n8nErrorData}`);
         } else {
-          console.log(`Webhook para n8n (triagem em lote) disparado com sucesso. Resposta do n8n:`, await n8nResponse.json());
+          console.log(`Webhook para n8n disparado com sucesso. Resposta:`, await n8nResponse.json());
         }
       } catch (webhookError) {
-        console.error("Erro ao disparar o webhook para o n8n (triagem em lote):", webhookError);
+        console.error("Erro ao disparar o webhook para o n8n:", webhookError);
       }
     }
-
 
     res.json({ success: true, message: `${files.length} currículo(s) enviado(s) para análise!`, newCandidates: newCandidateEntries });
 
@@ -536,14 +505,7 @@ app.get('/api/schedules/:userId', async (req: Request, res: Response) => {
 
   try {
     const { results } = await baserowServer.get(AGENDAMENTOS_TABLE_ID, `?filter__Candidato__usuario__link_row_has=${userId}`);
-    
-    console.log('Dados de agendamentos brutos do Baserow (Backend):');
-    results.forEach((item: any, index: number) => {
-        console.log(`  Agendamento ${index}: Título="${item.Título}", Vaga ID="${item.Vaga?.[0]?.id}", Vaga Value="${item.Vaga?.[0]?.value}"`);
-    });
-
     res.json({ success: true, results: results || [] });
-
   } catch (error: any) {
     console.error('Erro ao buscar agendamentos (backend):', error);
     res.status(500).json({ success: false, message: 'Falha ao buscar agendamentos.' });
@@ -569,7 +531,6 @@ app.get('/api/google/auth/callback', async (req: Request, res: Response) => {
   const closePopupScript = `<script>window.close();</script>`;
 
   if (!code) {
-    console.error("Callback do Google recebido sem o código de autorização.");
     return res.send(closePopupScript);
   }
 
@@ -579,19 +540,14 @@ app.get('/api/google/auth/callback', async (req: Request, res: Response) => {
 
     if (typeof userId === 'string') {
         if (refresh_token) {
-            console.log('Refresh Token obtido e será salvo para o usuário:', userId);
             await baserowServer.patch(USERS_TABLE_ID, parseInt(userId), { google_refresh_token: refresh_token });
-        } else {
-            console.warn('Nenhum refresh_token foi recebido para o usuário:', userId);
         }
-    } else {
-        console.error('userId recebido não é uma string:', userId);
     }
     
     res.send(closePopupScript);
 
   } catch (error) {
-    console.error('--- ERRO DETALHADO NA TROCA DE TOKEN DO GOOGLE ---', error);
+    console.error('Erro na troca de token do Google:', error);
     res.send(closePopupScript);
   }
 });
@@ -599,7 +555,6 @@ app.get('/api/google/auth/callback', async (req: Request, res: Response) => {
 app.post('/api/google/auth/disconnect', async (req: Request, res: Response) => {
     const { userId } = req.body;
     await baserowServer.patch(USERS_TABLE_ID, parseInt(userId), { google_refresh_token: null });
-    console.log(`Desconectando calendário para o usuário ${userId}`);
     res.json({ success: true, message: 'Conta Google desconectada.' });
 });
 
@@ -611,7 +566,6 @@ app.get('/api/google/auth/status', async (req: Request, res: Response) => {
     const isConnected = !!userResponse.google_refresh_token;
     res.json({ isConnected });
   } catch (error) {
-    console.error('Erro ao verificar status da conexão Google para o usuário:', userId, error);
     res.status(500).json({ error: 'Erro ao verificar status da conexão.' });
   }
 });
@@ -647,10 +601,6 @@ app.post('/api/google/calendar/create-event', async (req: Request, res: Response
             calendarId: 'primary', requestBody: event,
         });
         
-        console.log('Evento criado no Google Calendar com sucesso. Resposta detalhada do Google:');
-        console.log(response.data);
-
-        // Salvar agendamento no Baserow
         await baserowServer.post(AGENDAMENTOS_TABLE_ID, {
           'Título': eventData.title,
           'Início': eventData.start,
@@ -661,9 +611,8 @@ app.post('/api/google/calendar/create-event', async (req: Request, res: Response
           'google_event_link': response.data.htmlLink
         });
 
-
-        if (process.env.N8N_SCHEDULE_WEBHOOK_URL) {
-            console.log('Disparando webhook para o n8n...');
+        const N8N_SCHEDULE_WEBHOOK_URL = process.env.N8N_SCHEDULE_WEBHOOK_URL;
+        if (N8N_SCHEDULE_WEBHOOK_URL) {
             const webhookPayload = {
                 recruiter: userResponse, candidate: candidate, job: job,
                 interview: {
@@ -672,12 +621,11 @@ app.post('/api/google/calendar/create-event', async (req: Request, res: Response
                 }
             };
             try {
-                fetch(process.env.N8N_SCHEDULE_WEBHOOK_URL, {
+                fetch(N8N_SCHEDULE_WEBHOOK_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(webhookPayload)
                 });
-                console.log('Webhook para n8n disparado com sucesso.');
             } catch (webhookError) {
                 console.error("Erro ao disparar o webhook para o n8n:", webhookError);
             }
