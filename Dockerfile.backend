@@ -1,23 +1,41 @@
-# Usa uma imagem Node.js baseada em Alpine, que é pequena e eficiente
-FROM node:20-alpine
+# --- ESTÁGIO 1: Build ---
+# Usamos uma imagem mais completa para garantir que todas as ferramentas de build funcionem
+FROM node:20-slim AS build-stage
 
-# Define o diretório de trabalho dentro do contêiner
+# Define o diretório de trabalho
 WORKDIR /app
 
 # Copia os arquivos de definição de pacotes
 COPY package*.json ./
 
-# Instala as dependências de produção
-RUN npm install --omit=dev
+# Instala TODAS as dependências (incluindo as de desenvolvimento)
+RUN npm install
 
-# Copia todo o resto do código-fonte da aplicação
+# Copia todo o resto do código-fonte
 COPY . .
 
-# Compila o código TypeScript para JavaScript (APENAS UMA VEZ, AQUI)
+# Compila o código TypeScript para JavaScript
 RUN npm run build:server
+
+
+# --- ESTÁGIO 2: Produção ---
+# Usa uma imagem baseada em Alpine, que é pequena e eficiente
+FROM node:20-alpine AS production-stage
+
+# Define o diretório de trabalho
+WORKDIR /app
+
+# Copia os arquivos de definição de pacotes do estágio de build
+COPY --from=build-stage /app/package*.json ./
+
+# Instala APENAS as dependências de produção
+RUN npm install --omit=dev
+
+# Copia o código compilado do estágio de build
+COPY --from=build-stage /app/dist-server ./dist-server
 
 # Expõe a porta que o servidor vai usar
 EXPOSE 3001
 
-# Comando para iniciar o servidor em modo de produção, usando o script otimizado
+# Comando para iniciar o servidor em modo de produção
 CMD ["npm", "run", "start"]
