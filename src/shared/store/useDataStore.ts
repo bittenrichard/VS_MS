@@ -28,23 +28,16 @@ export const useDataStore = create<DataState>((set, get) => ({
     if (get().isDataLoading) return;
     set({ isDataLoading: true, error: null });
     try {
-      // Usa nosso cliente de API para chamar o endpoint correto
       const response = await api.get(`/api/data/all/${profile.id}`);
       if (!response.ok) {
         throw new Error('Falha ao carregar dados do servidor.');
       }
-      
       const data = await response.json();
-
-      // A LÓGICA CORRETA E SEGURA, usando a estrutura que você validou
       const jobs = Array.isArray(data.jobs) ? data.jobs : [];
       const candidates = Array.isArray(data.candidates) ? data.candidates : [];
-      
       set({ jobs, candidates, isDataLoading: false });
-
     } catch (err: any) {
       console.error("Erro ao buscar dados (useDataStore):", err);
-      // Em caso de qualquer erro, reseta para um estado seguro
       set({ error: 'Falha ao carregar dados.', jobs: [], candidates: [], isDataLoading: false });
     }
   },
@@ -61,7 +54,6 @@ export const useDataStore = create<DataState>((set, get) => ({
 
   deleteJobById: async (jobId: number) => {
     try {
-      // Usa nosso cliente de API para deletar a vaga
       const response = await api.delete(`/api/jobs/${jobId}`);
       if (!response.ok) {
         const errorData = await response.json();
@@ -78,16 +70,17 @@ export const useDataStore = create<DataState>((set, get) => ({
 
   updateCandidateStatus: async (candidateId: number, newStatus: string) => {
     try {
-      // Usa nosso cliente de API para fazer a chamada PATCH
+      // Usa nosso cliente de API para fazer a chamada PATCH para o subdomínio correto
       const response = await api.patch(`/api/candidates/${candidateId}/status`, { status: newStatus });
       if (!response.ok) {
         throw new Error("Não foi possível atualizar o status.");
       }
-      // Atualiza o estado localmente após o sucesso
+      // Atualiza o estado localmente apenas após o sucesso da chamada à API
       get().updateCandidateStatusInStore(candidateId, newStatus as any);
     } catch (error) {
       console.error("Erro ao atualizar status do candidato:", error);
-      throw error; // Re-lança o erro para o componente que chamou
+      // Re-lança o erro para que o componente que chamou (o Kanban) possa lidar com ele, se necessário
+      throw error; 
     }
   },
 
