@@ -11,6 +11,9 @@ services:
       GOOGLE_REDIRECT_URI: "https://recrutamentoia.com.br/api/google/auth/callback"
       N8N_SCHEDULE_WEBHOOK_URL: "https://webhook.focoserv.com.br/webhook/googleacesso"
       N8N_TRIAGEM_WEBHOOK_URL: "https://webhook.focoserv.com.br/webhook/recrutamento"
+    # --- MUDANÇA IMPORTANTE AQUI ---
+    ports:
+      - "3001:3001"
     networks:
       - traefik_network
     deploy:
@@ -25,16 +28,7 @@ services:
         parallelism: 1
         delay: 10s
         order: stop-first
-    labels:
-      - "traefik.enable=true"
-      # --- MUDANÇA CRÍTICA AQUI ---
-      - "traefik.http.routers.recrutamentoai-backend.rule=Host(`recrutamentoia.com.br`) && PathRegexp(`/api/{path:.*}`)"
-      - "traefik.http.routers.recrutamentoai-backend.priority=100"
-      - "traefik.http.routers.recrutamentoai-backend.entrypoints=websecure"
-      - "traefik.http.routers.recrutamentoai-backend.tls.certresolver=letsencryptresolver"
-      - "traefik.http.services.recrutamentoai-backend.loadbalancer.server.port=3001"
-      - "traefik.http.routers.recrutamentoai-backend.middlewares=sslheader"
-      - "traefik.http.middlewares.sslheader.headers.customrequestheaders.X-Forwarded-Proto=https"
+    # LABELS DO TRAEFIK REMOVIDAS DO BACKEND
 
   frontend:
     image: orickjogando/recrutamentoia-frontend:latest
@@ -51,6 +45,7 @@ services:
         delay: 10s
         order: stop-first
     labels:
+      # As labels do frontend continuam, pois ele está funcionando
       - "traefik.enable=true"
       - "traefik.http.routers.recrutamentoai-frontend.rule=Host(`recrutamentoia.com.br`) || Host(`www.recrutamentoia.com.br`)"
       - "traefik.http.routers.recrutamentoai-frontend.priority=50"
