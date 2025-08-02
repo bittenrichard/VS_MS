@@ -2,15 +2,36 @@ version: '3.8'
 
 services:
   backend:
-    container_name: recrutamentoai-backend
+    image: recrutamentoia-backend
+    container_name: recrutamentoia-backend
     build:
       context: .
       dockerfile: Dockerfile.backend
-    env_file:
-      - .env
+    environment:
+      - VITE_BASEROW_API_KEY_FILE=/run/secrets/db_api_key
+      - GOOGLE_CLIENT_ID_FILE=/run/secrets/google_client_id
+      - GOOGLE_CLIENT_SECRET_FILE=/run/secrets/google_client_secret
+      - GOOGLE_REDIRECT_URI_FILE=/run/secrets/google_redirect_uri
+      - FRONTEND_URL_FILE=/run/secrets/frontend_url
+      - N8N_SCHEDULE_WEBHOOK_URL_FILE=/run/secrets/n8n_webhook_url
+    secrets:
+      - db_api_key
+      - google_client_id
+      - google_client_secret
+      - google_redirect_uri
+      - frontend_url
+      - n8n_webhook_url
     restart: unless-stopped
     networks:
       - traefik_network
+    deploy:
+      replicas: 1
+      placement:
+        constraints: [node.role == manager]
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: stop-first
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.recrutamentoai-backend.rule=Host(`recrutamentoia.com.br`) && PathPrefix(`/api`)"
@@ -21,15 +42,20 @@ services:
       - "traefik.http.middlewares.sslheader.headers.customrequestheaders.X-Forwarded-Proto=https"
 
   frontend:
+    image: recrutamentoia-frontend
     container_name: recrutamentoai-frontend
     build:
       context: .
       dockerfile: Dockerfile.frontend
-    env_file:
-      - .env
     restart: unless-stopped
     networks:
       - traefik_network
+    deploy:
+      replicas: 1
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: stop-first
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.recrutamentoai-frontend.rule=Host(`recrutamentoia.com.br`) || Host(`www.recrutamentoia.com.br`)"
@@ -38,6 +64,20 @@ services:
       - "traefik.http.services.recrutamentoai-frontend.loadbalancer.server.port=80"
       - "traefik.http.routers.recrutamentoai-frontend.middlewares=sslheader"
       - "traefik.http.middlewares.sslheader.headers.customrequestheaders.X-Forwarded-Proto=https"
+
+secrets:
+  db_api_key:
+    external: true
+  google_client_id:
+    external: true
+  google_client_secret:
+    external: true
+  google_redirect_uri:
+    external: true
+  frontend_url:
+    external: true
+  n8n_webhook_url:
+    external: true
 
 networks:
   traefik_network:
