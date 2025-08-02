@@ -13,8 +13,8 @@
     "start": "cross-env NODE_ENV=production node -r dotenv/config ./dist-server/server.js"
   },
   "dependencies": {
-    "@baserow/baserow-js-sdk": "^0.1.0",
     "axios": "^1.7.2",
+    "baserow-client": "^0.3.0",
     "cors": "^2.8.5",
     "cross-env": "^7.0.3",
     "date-fns": "^3.6.0",
