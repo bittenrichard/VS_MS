@@ -1,86 +1,64 @@
 // Local: src/shared/store/useDataStore.ts
-
 import { create } from 'zustand';
-import { JobPosting } from '../../features/screening/types';
-import { Candidate } from '../../shared/types';
-import { UserProfile } from '../../features/auth/types';
-// Remova: import { baserow } from '../services/baserowClient'; // REMOVA esta linha
-// Remova: const VAGAS_TABLE_ID = '709'; // REMOVA esta linha
-// Remova: const CANDIDATOS_TABLE_ID = '710'; // REMOVA esta linha
-// Remova: const WHATSAPP_CANDIDATOS_TABLE_ID = '712'; // REMOVA esta linha
+import { api } from '../services/apiClient'; // Importa nosso novo cliente de API
 
-interface DataState {
-  jobs: JobPosting[];
-  candidates: Candidate[];
-  isDataLoading: boolean;
+// ... (suas interfaces permanecem as mesmas)
+interface Job {
+    id: number;
+    name: string;
+    description: string;
+    status: 'Em andamento' | 'Finalizado';
+    'Data de Criação': string;
+    'Nº de Aprovados': number;
+    'Nº de Reprovados': number;
+    'Nº de Candidatos': number;
+}
+// ... etc
+
+interface DataStore {
+  jobs: Job[];
+  schedules: any[]; // Defina um tipo mais específico se tiver
   error: string | null;
-  fetchAllData: (profile: UserProfile) => Promise<void>;
-  addJob: (job: JobPosting) => void;
-  updateJobInStore: (updatedJob: JobPosting) => void;
-  deleteJobById: (jobId: number) => Promise<void>;
-  updateCandidateStatusInStore: (candidateId: number, newStatus: 'Triagem' | 'Entrevista' | 'Aprovado' | 'Reprovado') => void;
+  isLoading: boolean;
+  fetchAllData: (userId: number) => Promise<void>;
+  fetchSchedules: (userId: number) => Promise<void>;
 }
 
-export const useDataStore = create<DataState>((set) => ({
+export const useDataStore = create<DataStore>((set) => ({
   jobs: [],
-  candidates: [],
-  isDataLoading: false,
+  schedules: [],
   error: null,
-
-  fetchAllData: async (profile: UserProfile) => {
-    set({ isDataLoading: true, error: null });
+  isLoading: false,
+  fetchAllData: async (userId: number) => {
+    set({ isLoading: true, error: null });
     try {
-      // Chame o endpoint centralizado no seu backend
-      const response = await fetch(`/api/data/all/${profile.id}`);
+      // USA O NOVO CLIENTE DE API
+      const response = await api.get(`/api/data/all/${userId}`);
       if (!response.ok) {
         throw new Error('Falha ao carregar dados do servidor.');
       }
-      const { jobs, candidates } = await response.json();
-      
-      set({ jobs: jobs, candidates: candidates });
-    } catch (err: any) {
-      console.error("Erro ao buscar dados (useDataStore):", err);
-      set({ error: 'Falha ao carregar dados.', jobs: [], candidates: [] });
-    } finally {
-      set({ isDataLoading: false });
+      const data = await response.json();
+      set({ jobs: data.jobs, isLoading: false });
+    } catch (error: any) {
+      console.error("Erro ao buscar dados (useDataStore):", error);
+      set({ error: error.message, isLoading: false });
     }
   },
-
-  addJob: (job: JobPosting) => {
-    set((state) => ({ jobs: [job, ...state.jobs] }));
-  },
-
-  updateJobInStore: (updatedJob: JobPosting) => {
-    set((state) => ({
-      jobs: state.jobs.map(job => job.id === updatedJob.id ? updatedJob : job)
-    }));
-  },
-
-  deleteJobById: async (jobId: number) => {
+  fetchSchedules: async (userId: number) => {
+    set({ isLoading: true, error: null });
     try {
-      // Chame o backend para deletar a vaga
-      const response = await fetch(`/api/jobs/${jobId}`, {
-        method: 'DELETE',
-      });
-      if (!response.ok) {
-        const errorData = await response.json(); // Tenta ler o erro do corpo
-        throw new Error(errorData.error || "Não foi possível excluir a vaga.");
-      }
-      set((state) => ({
-        jobs: state.jobs.filter(job => job.id !== jobId)
-      }));
-    } catch (error) {
-      console.error("Erro ao deletar vaga (useDataStore):", error);
-      throw error; // Re-lança para que o componente chamador possa lidar
+        // USA O NOVO CLIENTE DE API
+        const response = await api.get(`/api/schedules/${userId}`);
+        if (!response.ok) {
+            // Se a resposta não for ok, o corpo pode não ser JSON
+            // então não tentamos fazer o parse.
+            throw new Error('Falha ao buscar agendamentos do servidor.');
+        }
+        const data = await response.json();
+        set({ schedules: data, isLoading: false });
+    } catch (error: any) {
+        console.error("Erro ao buscar agendamentos:", error);
+        set({ error: error.message, isLoading: false });
     }
-  },
-
-  updateCandidateStatusInStore: (candidateId: number, newStatus: 'Triagem' | 'Entrevista' | 'Aprovado' | 'Reprovado') => {
-    set((state) => ({
-      candidates: state.candidates.map(c => 
-        // Verifica se é o candidato correto e atualiza o status
-        c.id === candidateId ? { ...c, status: { id: 0, value: newStatus } } : c
-      )
-    }));
   },
 }));
