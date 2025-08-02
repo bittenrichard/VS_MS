@@ -3,7 +3,7 @@ version: '3.8'
 services:
   backend:
     # IMPORTANTE: Substitua 'seu-usuario-dockerhub' pelo seu usuário do Docker Hub
-    image: seu-usuario-dockerhub/recrutamentoia-backend:latest
+    image: foco/recrutamentoia-backend:latest
     environment:
       # --- CREDENCIAIS INSERIDAS DIRETAMENTE (NÃO RECOMENDADO) ---
       FRONTEND_URL: "https://recrutamentoia.com.br"
