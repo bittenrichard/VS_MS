@@ -27,7 +27,8 @@ services:
         order: stop-first
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.recrutamentoai-backend.rule=Host(`recrutamentoia.com.br`) && PathPrefix(`/api`)"
+      # --- MUDANÇA CRÍTICA AQUI ---
+      - "traefik.http.routers.recrutamentoai-backend.rule=Host(`recrutamentoia.com.br`) && PathRegexp(`/api/{path:.*}`)"
       - "traefik.http.routers.recrutamentoai-backend.priority=100"
       - "traefik.http.routers.recrutamentoai-backend.entrypoints=websecure"
       - "traefik.http.routers.recrutamentoai-backend.tls.certresolver=letsencryptresolver"
