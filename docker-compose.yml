@@ -23,10 +23,12 @@ services:
           memory: 512M
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.backend.rule=Host(`recrutamentoia.com.br`) && PathPrefix(`/api`)"
-      - "traefik.http.routers.backend.entrypoints=websecure"
-      - "traefik.http.routers.backend.tls.certresolver=letsencryptresolver"
-      - "traefik.http.services.backend.loadbalancer.server.port=3001"
+      # --- Roteamento do Backend ---
+      - "traefik.http.routers.backend-router.rule=Host(`recrutamentoia.com.br`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.backend-router.entrypoints=websecure"
+      - "traefik.http.routers.backend-router.tls.certresolver=letsencryptresolver"
+      - "traefik.http.services.backend-service.loadbalancer.server.port=3001"
+      # --- Linha Chave: Especifica a rede para o Traefik ---
       - "traefik.docker.network=Foco"
 
   frontend:
@@ -41,10 +43,12 @@ services:
           memory: 256M
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.frontend.rule=Host(`recrutamentoia.com.br`) || Host(`www.recrutamentoia.com.br`)"
-      - "traefik.http.routers.frontend.entrypoints=websecure"
-      - "traefik.http.routers.frontend.tls.certresolver=letsencryptresolver"
-      - "traefik.http.services.frontend.loadbalancer.server.port=80"
+      # --- Roteamento do Frontend ---
+      - "traefik.http.routers.frontend-router.rule=Host(`recrutamentoia.com.br`) || Host(`www.recrutamentoia.com.br`)"
+      - "traefik.http.routers.frontend-router.entrypoints=websecure"
+      - "traefik.http.routers.frontend-router.tls.certresolver=letsencryptresolver"
+      - "traefik.http.services.frontend-service.loadbalancer.server.port=80"
+      # --- Linha Chave: Especifica a rede para o Traefik ---
       - "traefik.docker.network=Foco"
 
 networks:
